@@ -11,7 +11,7 @@ type App struct {
 }
 
 type Forum interface {
-	Create(forum *entity.Forum) (*entity.Forum, error)
+	Create(forum *entity.Forum) error
 	Get(slug string) (*entity.Forum, error)
 	CreateThread(slug string, thread *entity.Thread) (*entity.Thread, error)
 	GetUsers(slug string, limit int32, since string, desc bool) ([]entity.User, error)
