@@ -8,10 +8,10 @@ import (
 
 func New() *repository.Repositories {
 	db, err := pgx.NewConnPool(pgx.ConnPoolConfig{
-		ConnConfig:     pgx.ConnConfig{
-			Database:             "forum",
-			User:                 "forum",
-			Password:             "123",
+		ConnConfig: pgx.ConnConfig{
+			Database: "forum",
+			User:     "forum",
+			Password: "123",
 		},
 		MaxConnections: 100,
 	})
@@ -22,10 +22,10 @@ func New() *repository.Repositories {
 
 	return &repository.Repositories{
 		Forum:   newForum(db),
-		Post:    nil,
+		Post:    newPost(db),
 		Service: nil,
-		Thread:  nil,
-		User:    nil,
+		Thread:  newThread(db),
+		User:    newUser(db),
 		Vote:    nil,
 	}
 }

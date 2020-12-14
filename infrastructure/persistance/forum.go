@@ -5,8 +5,6 @@ import (
 	"github.com/mark-by/tp-db-bykhovets/domain/entity"
 	"github.com/mark-by/tp-db-bykhovets/domain/entityErrors"
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
-	"github.com/sirupsen/logrus"
-	"strings"
 )
 
 type Forum struct {
@@ -22,25 +20,45 @@ func (f Forum) Create(forum *entity.Forum) error {
 	if err != nil {
 		return err
 	}
+	defer func() {EndTx(tx, err)} ()
+
 	_, err = tx.Exec("INSERT INTO forums (slug, title, author) "+
-		"VALUES ($1, $2, $3) "+
-		"RETURNING title", forum.Slug, forum.Title, forum.Author)
+		"VALUES ($1, $2, $3)", forum.Slug, forum.Title, forum.Author)
 
 	if err != nil {
-		if strings.Contains(err.Error(), "forums_author_fkey") {
-			EndTx(tx, err)
+		switch true {
+		case IsAuthorErr(err):
 			return entityErrors.UserNotFound
+		case IsUniqErr(err):
+			return entityErrors.ForumAlreadyExist
+		default:
+			return err
 		}
-		logrus.Errorf("CREATE FORUM: %s", err.Error())
-		return err
 	}
 
-	EndTx(tx, err)
 	return nil
 }
 
 func (f Forum) GetBySlug(slug string) (*entity.Forum, error) {
-	panic("implement me")
+	tx, err := f.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+
+	row := tx.QueryRow("SELECT f.posts, f.threads, f.title, f.author "+
+		"FROM forums as f "+
+		"WHERE f.slug = $1", slug)
+
+	forum := entity.Forum{
+		Slug: slug,
+	}
+	if err := row.Scan(&forum.Posts, &forum.Threads, &forum.Title, &forum.Author); err != nil {
+		if IsNotFoundErr(err) {
+			return nil, entityErrors.ForumNotFound
+		}
+		return nil, err
+	}
+	return &forum, nil
 }
 
 var _ repository.Forum = &Forum{}

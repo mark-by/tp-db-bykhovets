@@ -18,6 +18,4 @@ func (s Service) Info() (*entity.Status, error) {
 	panic("implement me")
 }
 
-
-
 var _ repository.Service = &Service{}

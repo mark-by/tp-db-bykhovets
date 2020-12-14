@@ -3,11 +3,11 @@ package application
 import "github.com/mark-by/tp-db-bykhovets/domain/entity"
 
 type App struct {
-	Forum Forum
-	Post Post
+	Forum   Forum
+	Post    Post
 	Service Service
-	Thread Thread
-	User User
+	Thread  Thread
+	User    User
 }
 
 type Forum interface {

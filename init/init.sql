@@ -78,9 +78,76 @@ CREATE UNLOGGED TABLE votes
     thread INTEGER            NOT NULL REFERENCES threads ON DELETE CASCADE
 );
 
+CREATE UNIQUE INDEX unique_vote_idx on votes (author, thread);
+
 ---- Forum Users
 CREATE UNLOGGED TABLE forums_users
 (
     forum    CITEXT COLLATE "C" NOT NULL REFERENCES forums (slug) ON DELETE CASCADE,
     nickname CITEXT COLLATE "C" NOT NULL REFERENCES customers (nickname) ON DELETE CASCADE
 );
+
+CREATE UNIQUE INDEX unique_idx_forum_users on forums_users (nickname, forum);
+
+---- Update path
+CREATE OR REPLACE FUNCTION update_path()
+    RETURNS TRIGGER AS
+$BODY$
+DECLARE
+    parent_path         BIGINT[];
+    first_parent_thread INT;
+BEGIN
+    IF (NEW.parent = 0) THEN
+        NEW.path := array_append(NEW.path, NEW.id);
+    ELSE
+        SELECT thread, path
+        FROM posts
+        WHERE thread = NEW.thread AND id = NEW.parent
+        INTO first_parent_thread, parent_path;
+        IF NOT FOUND OR first_parent_thread != NEW.thread THEN
+            RAISE EXCEPTION 'Parent post not found in current thread' USING ERRCODE = '00404';
+        END IF ;
+        NEW.path := parent_path || NEW.id;
+    END IF;
+    RETURN NEW;
+END;
+$BODY$ LANGUAGE plpgsql;
+
+CREATE TRIGGER path_updater
+    BEFORE INSERT
+    ON posts
+    FOR EACH ROW
+EXECUTE PROCEDURE update_path();
+
+CREATE OR REPLACE FUNCTION update_forum_users_by_insert_into_threads()
+RETURNS TRIGGER AS
+$BODY$
+BEGIN
+    INSERT INTO forums_users (forum, nickname) values (NEW.forum, NEW.author)
+    ON CONFLICT DO NOTHING;
+    RETURN NEW;
+END;
+$BODY$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER thread_insert_forum
+    AFTER INSERT
+    ON threads
+    FOR EACH ROW
+EXECUTE PROCEDURE update_forum_users_by_insert_into_threads()
+
+-- Update forum threads
+CREATE OR REPLACE FUNCTION update_forum_threads()
+RETURNS TRIGGER AS
+$BODY$
+BEGIN
+    UPDATE forums SET threads = (threads + 1) WHERE slug = NEW.forum;
+    RETURN NEW;
+END;
+$BODY$ LANGUAGE plpgsql;
+
+CREATE TRIGGER upd_forum_threads
+    AFTER INSERT
+    ON threads
+    FOR EACH ROW
+EXECUTE PROCEDURE update_forum_threads();
