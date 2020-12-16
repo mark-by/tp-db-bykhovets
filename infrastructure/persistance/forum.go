@@ -39,6 +39,17 @@ func (f Forum) Create(forum *entity.Forum) error {
 	return nil
 }
 
+func (f Forum) Exists(forumSlug string) (exist bool, err error) {
+	tx, err := f.db.Begin()
+	if err != nil {
+		return
+	}
+	defer func() {EndTx(tx, err)}()
+
+	err = tx.QueryRow("SELECT EXISTS (SELECT FROM forums WHERE slug = $1)", forumSlug).Scan(&exist)
+	return
+}
+
 func (f Forum) GetBySlug(slug string) (*entity.Forum, error) {
 	tx, err := f.db.Begin()
 	if err != nil {

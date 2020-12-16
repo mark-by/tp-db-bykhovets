@@ -9,6 +9,7 @@ import (
 	"github.com/mark-by/tp-db-bykhovets/domain/entityErrors"
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
 	"github.com/sirupsen/logrus"
+	"strconv"
 	"time"
 )
 
@@ -21,7 +22,7 @@ func (p Post) Create(thread *entity.Thread, posts []entity.Post) error {
 	if err != nil {
 		return err
 	}
-	defer func(){EndTx(tx, err)}()
+	defer func() { EndTx(tx, err) }()
 
 	values := ""
 	for _, post := range posts {
@@ -106,7 +107,7 @@ func insertUsers(tx *pgx.Tx, forum string, authors map[string]bool) error {
 		values += fmt.Sprintf("('%s', '%s'), ", forum, author)
 	}
 	_, err := tx.Exec("INSERT INTO forums_users (forum, nickname) " +
-		"VALUES " + values[:len(values) - 2] + " ON CONFLICT DO NOTHING;")
+		"VALUES " + values[:len(values)-2] + " ON CONFLICT DO NOTHING;")
 	return err
 }
 
@@ -124,7 +125,7 @@ func (p Post) Get(id int64, related []string) (*entity.Post, *entity.User, *enti
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	defer func() {EndTx(tx, err)} ()
+	defer func() { EndTx(tx, err) }()
 
 	post := entity.Post{ID: id}
 	user := entity.User{}
@@ -174,8 +175,8 @@ func (p Post) Get(id int64, related []string) (*entity.Post, *entity.User, *enti
 			forumRelated = true
 		}
 	}
-	logrus.Infof("SQL: %s WHERE p.id = %d", selects + joins, id)
-	row := tx.QueryRow(selects + joins +
+	logrus.Infof("SQL: %s WHERE p.id = %d", selects+joins, id)
+	row := tx.QueryRow(selects+joins+
 		"WHERE p.id = $1", id)
 
 	err = row.Scan(vars...)
@@ -225,12 +226,12 @@ func (p Post) Update(post *entity.Post) error {
 	if err != nil {
 		return err
 	}
-	defer func() {EndTx(tx, err)}()
+	defer func() { EndTx(tx, err) }()
 
 	created := sql.NullTime{}
 
-	err = tx.QueryRow("UPDATE posts SET message = $1, is_edited = true " +
-		"WHERE id = $2 " +
+	err = tx.QueryRow("UPDATE posts SET message = $1, is_edited = true "+
+		"WHERE id = $2 "+
 		"RETURNING parent, created, author, thread, forum", post.Message, post.ID).
 		Scan(&post.Parent, &created, &post.Author, &post.Thread, &post.Forum)
 
@@ -242,11 +243,117 @@ func (p Post) Update(post *entity.Post) error {
 		post.Created = created.Time.Format(time.RFC3339Nano)
 	}
 
+	post.IsEdited = true
+
 	return nil
 }
 
-func (p Post) GetForThread(threadSlugOrId string, sortType string) ([]entity.Post, error) {
-	panic("implement me")
+func (p Post) GetForThread(threadId int, desc bool, sortType string, since int, limit int) ([]entity.Post, error) {
+	tx, err := p.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer func() { EndTx(tx, err) }()
+
+	selects := "SELECT p.id, p.message, p.is_edited, p.parent, p.created, p.author, p.thread, p.forum "
+
+	limits := ""
+	if limit != 0 && sortType != "parent_tree" {
+		limits = fmt.Sprintf("LIMIT %d", limit)
+	}
+
+	from := "FROM posts AS p "
+
+	sqlQuery := selects + from  + getPostsWhere(threadId, sortType, desc, since, limit) +
+		getPostsOrder(sortType, desc) + limits + ";"
+	logrus.Infof("SQL: %s", sqlQuery)
+	rows, err := tx.Query(sqlQuery)
+	if err != nil {
+		return nil, err
+	}
+	var posts []entity.Post
+	created := sql.NullTime{}
+	for rows.Next() {
+		post := entity.Post{}
+		err := rows.Scan(&post.ID, &post.Message, &post.IsEdited, &post.Parent, &created, &post.Author, &post.Thread, &post.Forum)
+		if err != nil {
+			return nil, err
+		}
+		post.Created = created.Time.Format(time.RFC3339Nano)
+		posts = append(posts, post)
+	}
+	return posts, nil
+}
+
+func getPostsWhere(threadId int,  sortType string, desc bool, since int, limit int) string {
+
+	where := fmt.Sprintf("WHERE p.thread = %d ", threadId)
+	symbol := ">"
+	if desc {
+		symbol = "<"
+	}
+	switch sortType {
+	case "":
+		fallthrough
+	case "flat":
+		if since == 0 {
+			break
+		}
+
+		sinceAddition := fmt.Sprintf("AND p.id %s %d ", symbol, since)
+		where += sinceAddition
+	case "tree":
+		if since == 0 {
+			break
+		}
+		sinceAddition := fmt.Sprintf("AND p.path::bigint[] %s (SELECT path FROM posts WHERE id = %d)::bigint[] ",
+			symbol, since)
+		where += sinceAddition
+	case "parent_tree":
+		sinceAddition := ""
+		if since != 0 {
+			sinceAddition = fmt.Sprintf("AND p2.path[1] %s (SELECT path[1] FROM posts WHERE id = %d) ", symbol, since)
+		}
+		desStr := ""
+		if desc {
+			desStr = "DESC "
+		}
+		limits := ""
+		if limit != 0 {
+			limits = fmt.Sprintf("LIMIT %d", limit)
+		}
+		where = "JOIN " +
+			"(SELECT * FROM posts AS p2 " +
+			"WHERE p2.thread = " + strconv.Itoa(threadId) + " AND p2.parent = 0 "+
+			sinceAddition +
+			"ORDER BY p2.path " + desStr +
+			limits +
+			") AS prnt " +
+			"ON prnt.path[1] = p.path[1] "
+	default:
+	}
+
+	return where
+}
+
+func getPostsOrder(sortType string, desc bool) string {
+	if sortType == "" {
+		sortType = "flat"
+	}
+	descStr := ""
+	if desc {
+		descStr = "DESC "
+	}
+	switch sortType {
+	case "flat":
+		return fmt.Sprintf("ORDER BY p.created %s, p.id %s", descStr, descStr)
+	case "tree":
+		return fmt.Sprintf("ORDER BY p.path %s", descStr)
+	case "parent_tree":
+		return fmt.Sprintf("ORDER BY p.path[1] %s, p.path", descStr)
+	default:
+		return "ORDER BY p.created"
+	}
 }
 
 func newPost(db *pgx.ConnPool) *Post {

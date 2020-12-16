@@ -8,15 +8,24 @@ import (
 func main() {
 	reps := persistance.New()
 
-	post, user, thread, forum, err := reps.Post.Get(264, []string{"user", "forum", "thread"})
+	forum := "forum2"
+	ok, err := reps.Forum.Exists(forum)
 
 	if err != nil {
-		logrus.Error("Error: ", err)
+		logrus.Error(err)
 	}
 
-	logrus.Infof("POST: %v", post)
-	logrus.Infof("USER: %v", user)
-	logrus.Infof("THREAD: %v", thread)
-	logrus.Infof("FORUM: %v", forum)
+	if !ok {
+		logrus.Info("FORUM DOES NOT EXIST")
+		return
+	}
+
+	users, err := reps.User.GetForForum(forum, "", 1, false)
+	if err != nil {
+		logrus.Error(err)
+		return
+	}
+	logrus.Infof("Users: %v", users)
+
 	//handlers.ServeAPI(repositories)
 }

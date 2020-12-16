@@ -50,3 +50,16 @@ func IsThreadErr(err error) bool {
 func IsUniqErr(err error) bool {
 	return strings.Contains(err.Error(), "unique")
 }
+
+func updateTitles(columns []string) string {
+	values := ""
+	for idx, column := range columns {
+		values += fmt.Sprintf("%s = $%d,", column, idx + 1)
+	}
+	return values[:len(values) - 1]
+}
+
+type column struct {
+	Title string
+	Value interface{}
+}

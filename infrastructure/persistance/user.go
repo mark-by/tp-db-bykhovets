@@ -2,10 +2,12 @@ package persistance
 
 import (
 	"database/sql"
+	"fmt"
 	"github.com/jackc/pgx"
 	"github.com/mark-by/tp-db-bykhovets/domain/entity"
 	"github.com/mark-by/tp-db-bykhovets/domain/entityErrors"
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
+	"github.com/sirupsen/logrus"
 	"strings"
 )
 
@@ -35,8 +37,56 @@ func (u User) Create(user *entity.User) (*entity.User, error) {
 	return nil, nil
 }
 
-func (u User) GetForForum(slugForum string) ([]*entity.User, error) {
-	panic("implement me")
+func (u User) GetForForum(slugForum string, since string, limit int, desc bool) ([]entity.User, error) {
+	tx, err := u.db.Begin()
+	if err != nil {
+		return nil, err
+	}
+	defer func() {EndTx(tx, err)}()
+
+	selects := fmt.Sprintf("SELECT u.nickname, u.fullname, u.email, u.about " +
+		"FROM forums_users AS fs " +
+		"JOIN customers as u ON fs.nickname = u.nickname " +
+		"WHERE fs.forum = '%s' ", slugForum)
+
+	symbol := ">"
+	descStr := ""
+	if desc {
+		symbol = "<"
+		descStr = "DESC "
+	}
+
+	sinceAddition := ""
+	if since != "" {
+		sinceAddition = fmt.Sprintf("AND fs.nickname %s '%s' ", symbol, since)
+	}
+
+	limits := ""
+	if limit != 0 {
+		limits = fmt.Sprintf("LIMIT %d ", limit)
+	}
+
+	order := fmt.Sprintf("ORDER BY u.nickname %s", descStr)
+	sqlQuery := selects + sinceAddition + order + limits + ";"
+	logrus.Info("SQL: ", sqlQuery)
+	rows, err := tx.Query(sqlQuery)
+	if err != nil {
+		return nil, err
+	}
+	var users []entity.User
+	about := sql.NullString{}
+	for rows.Next() {
+		user := entity.User{}
+		err := rows.Scan(&user.NickName, &user.FullName, &user.Email, &about)
+		if err != nil {
+			return nil, err
+		}
+		if about.Valid {
+			user.About = about.String
+		}
+		users = append(users, user)
+	}
+	return users, nil
 }
 
 func (u User) GetByNickName(nickname string) (*entity.User, error) {

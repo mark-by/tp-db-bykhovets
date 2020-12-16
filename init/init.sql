@@ -151,3 +151,43 @@ CREATE TRIGGER upd_forum_threads
     ON threads
     FOR EACH ROW
 EXECUTE PROCEDURE update_forum_threads();
+
+-- Update thread votes
+CREATE OR REPLACE FUNCTION update_votes()
+RETURNS TRIGGER AS
+    $BODY$
+    BEGIN
+        IF NEW.voice = OLD.voice THEN
+            RETURN NEW;
+        END IF;
+        IF NEW.voice > 0 THEN
+            UPDATE threads SET votes = (votes + 2) WHERE id = NEW.thread;
+        ELSE
+            UPDATE threads SET votes = (votes - 2) WHERE id = NEW.thread;
+        END IF;
+        RETURN NEW;
+    END;
+    $BODY$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_votes_trigger
+    AFTER UPDATE
+    ON votes
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_votes();
+
+-- Insert vote
+CREATE OR REPLACE FUNCTION insert_votes()
+    RETURNS TRIGGER AS
+$BODY$
+BEGIN
+    UPDATE threads SET votes = (votes + NEW.voice) WHERE id = NEW.thread;
+    RETURN NEW;
+END;
+$BODY$ LANGUAGE plpgsql;
+
+
+CREATE TRIGGER insert_vote_trigger
+    AFTER INSERT
+    ON votes
+    FOR EACH ROW
+    EXECUTE PROCEDURE insert_votes()
