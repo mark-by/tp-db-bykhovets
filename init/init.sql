@@ -24,8 +24,9 @@ CREATE EXTENSION IF NOT EXISTS CITEXT;
 ---- Users
 CREATE UNLOGGED TABLE customers
 (
+    id       SERIAL PRIMARY KEY,
     email    CITEXT COLLATE "C" NOT NULL UNIQUE,
-    nickname CITEXT COLLATE "C" PRIMARY KEY,
+    nickname CITEXT COLLATE "C" NOT NULL UNIQUE,
     fullname TEXT               NOT NULL,
     about    TEXT
 );
@@ -33,7 +34,8 @@ CREATE UNLOGGED TABLE customers
 ---- Forums
 CREATE UNLOGGED TABLE forums
 (
-    slug    CITEXT COLLATE "C" PRIMARY KEY,
+    id      SERIAL PRIMARY KEY,
+    slug    CITEXT COLLATE "C" NOT NULL UNIQUE,
     author  CITEXT COLLATE "C" NOT NULL REFERENCES customers (nickname) ON DELETE CASCADE,
     title   TEXT               NOT NULL,
     threads BIGINT DEFAULT 0,
@@ -192,4 +194,4 @@ CREATE TRIGGER insert_vote_trigger
     AFTER INSERT
     ON votes
     FOR EACH ROW
-    EXECUTE PROCEDURE insert_votes()
+    EXECUTE PROCEDURE insert_votes();

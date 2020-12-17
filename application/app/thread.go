@@ -3,6 +3,7 @@ package app
 import (
 	"github.com/mark-by/tp-db-bykhovets/application"
 	"github.com/mark-by/tp-db-bykhovets/domain/entity"
+	"github.com/mark-by/tp-db-bykhovets/domain/entityErrors"
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
 	"strconv"
 )
@@ -43,7 +44,11 @@ func (t Thread) Update(slugOrId string, thread *entity.Thread) error {
 	} else {
 		thread.ID = int32(num)
 	}
-	return t.rep.Thread.Update(thread)
+	err =  t.rep.Thread.Update(thread)
+	if err == entityErrors.NothingToUpdate {
+		return t.rep.Thread.Get(thread)
+	}
+	return err
 }
 
 func (t Thread) GetPosts(slugOrId string, limit int, since int, desc bool, sort string) (entity.PostList, error) {

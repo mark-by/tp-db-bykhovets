@@ -36,8 +36,9 @@ func (t Thread) Create(thread *entity.Thread) error {
 
 	var id int32
 	err = tx.QueryRow("INSERT INTO threads (slug, title, message, author, forum, created) "+
-		"VALUES ($1, $2, $3, $4, $5, $6) "+
-		"RETURNING id;", slug, thread.Title, thread.Message, thread.Author, thread.Forum, created).Scan(&id)
+		"VALUES ($1, $2, $3, $4, (select slug from forums where slug = $5), $6) "+
+		"RETURNING id, forum;", slug, thread.Title, thread.Message, thread.Author, thread.Forum, created).Scan(&id, &thread.Forum)
+
 	if err != nil {
 		switch true {
 		case IsUniqErr(err):
@@ -72,7 +73,7 @@ func (t Thread) GetForForum(forumSlug string, since string, limit int, desc bool
 		symbol = "<="
 	}
 
-	selects := "SELECT t.id, t.slug, t.message, t.created, t.votes, t.author, t.forum " +
+	selects := "SELECT t.id, t.slug, t.title, t.message, t.created, t.votes, t.author, t.forum " +
 		"FROM threads AS t "
 	where := fmt.Sprintf("WHERE t.forum = '%s' ", forumSlug)
 	order := fmt.Sprintf("ORDER BY t.created %s", descString)
@@ -97,7 +98,7 @@ func (t Thread) GetForForum(forumSlug string, since string, limit int, desc bool
 	created := sql.NullTime{}
 	for rows.Next() {
 		thread := entity.Thread{}
-		err := rows.Scan(&thread.ID, &slug, &thread.Message,
+		err := rows.Scan(&thread.ID, &slug, &thread.Title, &thread.Message,
 			&created, &thread.Votes, &thread.Author, &thread.Forum)
 		if err != nil {
 			return nil, err
@@ -158,6 +159,10 @@ func (t Thread) Update(thread *entity.Thread) error {
 	if thread.Message != "" {
 		updateColumns = append(updateColumns, "message")
 		values = append(values, thread.Message)
+	}
+	if len(values) == 0 {
+		err = entityErrors.NothingToUpdate
+		return err
 	}
 	titles := updateTitles(updateColumns)
 	where := fmt.Sprintf(" WHERE id = %d ", thread.ID)

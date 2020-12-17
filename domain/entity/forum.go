@@ -2,8 +2,8 @@ package entity
 
 type Forum struct {
 	Slug    string `json:"slug"`
-	Author  string `json:"user"`
 	Title   string `json:"title"`
-	Threads int64  `json:"threads"`
-	Posts   int64  `json:"posts"`
+	Author  string `json:"user"`
+	Threads int64  `json:"threads,omitempty"`
+	Posts   int64  `json:"posts,omitempty"`
 }

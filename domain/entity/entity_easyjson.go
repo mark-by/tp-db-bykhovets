@@ -759,7 +759,7 @@ func easyjson163c17a9EncodeGithubComMarkByTpDbBykhovetsDomainEntity8(out *jwrite
 		out.RawString(prefix)
 		out.String(string(in.Message))
 	}
-	{
+	if in.IsEdited {
 		const prefix string = ",\"isEdited\":"
 		out.RawString(prefix)
 		out.Bool(bool(in.IsEdited))
@@ -902,10 +902,10 @@ func easyjson163c17a9DecodeGithubComMarkByTpDbBykhovetsDomainEntity10(in *jlexer
 		switch key {
 		case "slug":
 			out.Slug = string(in.String())
-		case "user":
-			out.Author = string(in.String())
 		case "title":
 			out.Title = string(in.String())
+		case "user":
+			out.Author = string(in.String())
 		case "threads":
 			out.Threads = int64(in.Int64())
 		case "posts":
@@ -930,21 +930,21 @@ func easyjson163c17a9EncodeGithubComMarkByTpDbBykhovetsDomainEntity10(out *jwrit
 		out.String(string(in.Slug))
 	}
 	{
-		const prefix string = ",\"user\":"
-		out.RawString(prefix)
-		out.String(string(in.Author))
-	}
-	{
 		const prefix string = ",\"title\":"
 		out.RawString(prefix)
 		out.String(string(in.Title))
 	}
 	{
+		const prefix string = ",\"user\":"
+		out.RawString(prefix)
+		out.String(string(in.Author))
+	}
+	if in.Threads != 0 {
 		const prefix string = ",\"threads\":"
 		out.RawString(prefix)
 		out.Int64(int64(in.Threads))
 	}
-	{
+	if in.Posts != 0 {
 		const prefix string = ",\"posts\":"
 		out.RawString(prefix)
 		out.Int64(int64(in.Posts))

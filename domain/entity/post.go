@@ -5,7 +5,7 @@ import "github.com/jackc/pgtype"
 type Post struct {
 	ID       int64            `json:"id"`
 	Message  string           `json:"message"`
-	IsEdited bool             `json:"isEdited"`
+	IsEdited bool             `json:"isEdited,omitempty"`
 	Parent   int64            `json:"parent"`
 	Created  string           `json:"created"`
 	Author   string           `json:"author"`

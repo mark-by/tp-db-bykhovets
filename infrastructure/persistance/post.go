@@ -32,6 +32,9 @@ func (p Post) Create(thread *entity.Thread, posts []entity.Post) error {
 			thread.ID,
 			thread.Forum)
 	}
+	if values == "" {
+		return nil
+	}
 	sqlQuery := "INSERT INTO posts (message, parent, author, thread, forum, created) " +
 		"VALUES " + values[:len(values)-2] +
 		" RETURNING id, created;"
@@ -211,6 +214,9 @@ func (p Post) Get(id int64, related []string) (*entity.PostFull, error) {
 }
 
 func (p Post) Update(post *entity.Post) error {
+	if post.Message == "" {
+		return entityErrors.NothingToUpdate
+	}
 	tx, err := p.db.Begin()
 	if err != nil {
 		return err
@@ -219,10 +225,26 @@ func (p Post) Update(post *entity.Post) error {
 
 	created := sql.NullTime{}
 
+	var prevMessage string
+	err = tx.QueryRow("SELECT parent, message, created, author, thread, forum, is_edited FROM posts WHERE id = $1", post.ID).
+		Scan(&post.Parent, &prevMessage, &created, &post.Author, &post.Thread, &post.Forum, &post.IsEdited)
+
+	if err != nil {
+		if IsNotFoundErr(err) {
+			return entityErrors.PostNotFound
+		}
+		return err
+	}
+
+	if prevMessage == post.Message {
+		post.Created = created.Time.Format(time.RFC3339Nano)
+		return nil
+	}
+
 	err = tx.QueryRow("UPDATE posts SET message = $1, is_edited = true "+
 		"WHERE id = $2 "+
-		"RETURNING parent, created, author, thread, forum", post.Message, post.ID).
-		Scan(&post.Parent, &created, &post.Author, &post.Thread, &post.Forum)
+		"RETURNING parent, created, author, thread, forum, is_edited", post.Message, post.ID).
+		Scan(&post.Parent, &created, &post.Author, &post.Thread, &post.Forum, &post.IsEdited)
 
 	if err != nil {
 		if IsNotFoundErr(err) {
@@ -234,8 +256,6 @@ func (p Post) Update(post *entity.Post) error {
 	if created.Valid {
 		post.Created = created.Time.Format(time.RFC3339Nano)
 	}
-
-	post.IsEdited = true
 
 	return nil
 }
@@ -341,7 +361,7 @@ func getPostsOrder(sortType string, desc bool) string {
 	case "tree":
 		return fmt.Sprintf("ORDER BY p.path %s", descStr)
 	case "parent_tree":
-		return fmt.Sprintf("ORDER BY p.path[1] %s, p.path", descStr)
+		return fmt.Sprintf("ORDER BY p.path[1] %s, p.path %s", descStr, descStr)
 	default:
 		return "ORDER BY p.created"
 	}

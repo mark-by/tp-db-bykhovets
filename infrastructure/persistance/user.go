@@ -124,8 +124,9 @@ func (u User) Get(user *entity.User) (err error) {
 	defer func() { EndTx(tx, err) }()
 
 	about := sql.NullString{}
-	err = tx.QueryRow("SELECT fullname, about, email FROM customers WHERE nickname = $1",
-		user.NickName).Scan(&user.FullName, &about, &user.Email)
+	err = tx.QueryRow("SELECT fullname, about, nickname, email FROM customers WHERE nickname = $1",
+		user.NickName).Scan(&user.FullName, &about, &user.NickName, &user.Email)
+
 	if err != nil {
 		if IsNotFoundErr(err) {
 			return entityErrors.UserNotFound
@@ -160,6 +161,11 @@ func (u User) Update(user *entity.User) (err error) {
 	if user.Email != "" {
 		columns = append(columns, "email")
 		values = append(values, user.Email)
+	}
+
+	if len(columns) == 0 {
+		err = entityErrors.NothingToUpdate
+		return
 	}
 	titles := updateTitles(columns)
 

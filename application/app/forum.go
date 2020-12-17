@@ -44,7 +44,7 @@ func (f Forum) CreateThread(slug string, thread *entity.Thread) error {
 		}
 		return entityErrors.ThreadAlreadyExist
 	}
-	return nil
+	return err
 }
 
 func (f Forum) GetUsers(slug string, limit int, since string, desc bool) (entity.UserList, error) {

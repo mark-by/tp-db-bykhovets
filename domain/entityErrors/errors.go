@@ -7,6 +7,8 @@ var (
 	UserAlreadyExist = errors.New("user already exist")
 	UserConflict     = errors.New("user conflict")
 
+	NothingToUpdate = errors.New("nothing to update")
+
 	ForumNotFound     = errors.New("forum not exist")
 	ForumAlreadyExist = errors.New("forum already exist")
 

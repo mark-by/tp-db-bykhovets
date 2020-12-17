@@ -43,7 +43,7 @@ func forumCreate(req *fasthttp.RequestCtx) {
 		serveJsonMarshalErr(req, err)
 		return
 	}
-	req.Response.SetStatusCode(fasthttp.StatusOK)
+	req.Response.SetStatusCode(fasthttp.StatusCreated)
 	req.Response.SetBody(body)
 }
 

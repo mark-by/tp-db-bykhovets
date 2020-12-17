@@ -22,8 +22,9 @@ func (f Forum) Create(forum *entity.Forum) error {
 	}
 	defer func() { EndTx(tx, err) }()
 
-	_, err = tx.Exec("INSERT INTO forums (slug, title, author) "+
-		"VALUES ($1, $2, $3)", forum.Slug, forum.Title, forum.Author)
+	err = tx.QueryRow("INSERT INTO forums (slug, title, author) "+
+		"VALUES ($1, $2, (select nickname from customers where nickname = $3)) " +
+		"RETURNING author", forum.Slug, forum.Title, forum.Author).Scan(&forum.Author)
 
 	if err != nil {
 		switch true {
@@ -56,14 +57,14 @@ func (f Forum) GetBySlug(slug string) (*entity.Forum, error) {
 		return nil, err
 	}
 
-	row := tx.QueryRow("SELECT f.posts, f.threads, f.title, f.author "+
+	row := tx.QueryRow("SELECT f.posts, f.slug, f.threads, f.title, f.author "+
 		"FROM forums as f "+
 		"WHERE f.slug = $1", slug)
 
 	forum := entity.Forum{
 		Slug: slug,
 	}
-	if err := row.Scan(&forum.Posts, &forum.Threads, &forum.Title, &forum.Author); err != nil {
+	if err := row.Scan(&forum.Posts, &forum.Slug, &forum.Threads, &forum.Title, &forum.Author); err != nil {
 		if IsNotFoundErr(err) {
 			return nil, entityErrors.ForumNotFound
 		}

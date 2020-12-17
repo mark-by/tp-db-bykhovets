@@ -17,12 +17,12 @@ func threadCreatePosts(req *fasthttp.RequestCtx) {
 	}
 	if err = app.Thread.CreatePosts(slugOrId, posts); err != nil {
 		switch err {
+		case entityErrors.UserNotFound:
+			fallthrough
 		case entityErrors.ThreadNotFound:
 			req.SetStatusCode(fasthttp.StatusNotFound)
 		case entityErrors.ParentNotExist:
 			req.SetStatusCode(fasthttp.StatusConflict)
-		case entityErrors.UserNotFound:
-			req.SetStatusCode(fasthttp.StatusBadRequest)
 		default:
 			req.SetStatusCode(fasthttp.StatusInternalServerError)
 		}
@@ -30,7 +30,7 @@ func threadCreatePosts(req *fasthttp.RequestCtx) {
 		return
 	}
 
-	req.SetStatusCode(fasthttp.StatusOK)
+	req.SetStatusCode(fasthttp.StatusCreated)
 	_ = setBody(req, posts)
 }
 
@@ -111,14 +111,11 @@ func voteThread(req *fasthttp.RequestCtx) {
 	thread, err := app.Thread.Vote(slugOrId, vote)
 	if err != nil {
 		req.SetBodyString(message(err.Error()))
-		if err == entityErrors.ThreadNotFound {
+		if err == entityErrors.ThreadNotFound || err == entityErrors.UserNotFound {
 			req.SetStatusCode(fasthttp.StatusNotFound)
 			return
 		}
-		if err == entityErrors.UserNotFound {
-			req.SetStatusCode(fasthttp.StatusBadRequest)
-			return
-		}
+
 		req.SetStatusCode(fasthttp.StatusInternalServerError)
 		return
 	}
