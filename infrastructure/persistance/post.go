@@ -8,7 +8,6 @@ import (
 	"github.com/mark-by/tp-db-bykhovets/domain/entity"
 	"github.com/mark-by/tp-db-bykhovets/domain/entityErrors"
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
-	"github.com/sirupsen/logrus"
 	"strconv"
 	"time"
 )
@@ -175,9 +174,7 @@ func (p Post) Get(id int64, related []string) (*entity.PostFull, error) {
 			forumRelated = true
 		}
 	}
-	logrus.Infof("SQL: %s WHERE p.id = %d", selects+joins, id)
-	row := tx.QueryRow(selects+joins+
-		"WHERE p.id = $1", id)
+	row := tx.QueryRow(selects+joins+"WHERE p.id = $1", id)
 
 	err = row.Scan(vars...)
 
@@ -243,7 +240,7 @@ func (p Post) Update(post *entity.Post) error {
 	return nil
 }
 
-func (p Post) GetForThread(threadId int, desc bool, sortType string, since int, limit int) ([]entity.Post, error) {
+func (p Post) GetForThread(threadId int, desc bool, sortType string, since int, limit int) (entity.PostList, error) {
 	tx, err := p.db.Begin()
 	if err != nil {
 		return nil, err
@@ -259,14 +256,13 @@ func (p Post) GetForThread(threadId int, desc bool, sortType string, since int, 
 
 	from := "FROM posts AS p "
 
-	sqlQuery := selects + from  + getPostsWhere(threadId, sortType, desc, since, limit) +
+	sqlQuery := selects + from + getPostsWhere(threadId, sortType, desc, since, limit) +
 		getPostsOrder(sortType, desc) + limits + ";"
-	logrus.Infof("SQL: %s", sqlQuery)
 	rows, err := tx.Query(sqlQuery)
 	if err != nil {
 		return nil, err
 	}
-	var posts []entity.Post
+	posts := entity.PostList{}
 	created := sql.NullTime{}
 	for rows.Next() {
 		post := entity.Post{}
@@ -280,7 +276,7 @@ func (p Post) GetForThread(threadId int, desc bool, sortType string, since int, 
 	return posts, nil
 }
 
-func getPostsWhere(threadId int,  sortType string, desc bool, since int, limit int) string {
+func getPostsWhere(threadId int, sortType string, desc bool, since int, limit int) string {
 
 	where := fmt.Sprintf("WHERE p.thread = %d ", threadId)
 	symbol := ">"
@@ -319,7 +315,7 @@ func getPostsWhere(threadId int,  sortType string, desc bool, since int, limit i
 		}
 		where = "JOIN " +
 			"(SELECT * FROM posts AS p2 " +
-			"WHERE p2.thread = " + strconv.Itoa(threadId) + " AND p2.parent = 0 "+
+			"WHERE p2.thread = " + strconv.Itoa(threadId) + " AND p2.parent = 0 " +
 			sinceAddition +
 			"ORDER BY p2.path " + desStr +
 			limits +

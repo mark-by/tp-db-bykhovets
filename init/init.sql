@@ -180,7 +180,11 @@ CREATE OR REPLACE FUNCTION insert_votes()
     RETURNS TRIGGER AS
 $BODY$
 BEGIN
-    UPDATE threads SET votes = (votes + NEW.voice) WHERE id = NEW.thread;
+    IF NEW.voice > 0 THEN
+        UPDATE threads SET votes = (votes + 1) WHERE id = NEW.thread;
+    ELSE
+        UPDATE threads SET votes = (votes - 1) WHERE id = NEW.thread;
+    END IF;
     RETURN NEW;
 END;
 $BODY$ LANGUAGE plpgsql;

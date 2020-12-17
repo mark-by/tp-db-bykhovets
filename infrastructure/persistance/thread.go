@@ -19,7 +19,7 @@ func (t Thread) Create(thread *entity.Thread) error {
 	if err != nil {
 		return err
 	}
-	defer func() {EndTx(tx, err)} ()
+	defer func() { EndTx(tx, err) }()
 
 	created := sql.NullTime{Time: time.Now(), Valid: true}
 	if thread.Created != "" {
@@ -63,7 +63,7 @@ func (t Thread) GetForForum(forumSlug string, since string, limit int, desc bool
 	if err != nil {
 		return nil, err
 	}
-	defer func() {EndTx(tx, err)}()
+	defer func() { EndTx(tx, err) }()
 
 	descString := ""
 	symbol := ">="
@@ -91,8 +91,8 @@ func (t Thread) GetForForum(forumSlug string, since string, limit int, desc bool
 	if err != nil {
 		return nil, err
 	}
-	var threads []entity.Thread
 
+	threads := entity.ThreadList{}
 	slug := sql.NullString{}
 	created := sql.NullTime{}
 	for rows.Next() {
@@ -116,7 +116,7 @@ func (t Thread) Get(thread *entity.Thread) error {
 	if err != nil {
 		return err
 	}
-	defer func() {EndTx(tx, err)}()
+	defer func() { EndTx(tx, err) }()
 
 	selects := "SELECT id, title, author, forum, message, votes, slug, created FROM threads "
 	where := fmt.Sprintf("WHERE id = %d;", thread.ID)
@@ -126,9 +126,12 @@ func (t Thread) Get(thread *entity.Thread) error {
 
 	slug := sql.NullString{}
 	created := sql.NullTime{}
-	err = tx.QueryRow(selects + where).Scan(&thread.ID, &thread.Title, &thread.Author,
+	err = tx.QueryRow(selects+where).Scan(&thread.ID, &thread.Title, &thread.Author,
 		&thread.Forum, &thread.Message, &thread.Votes, &slug, &created)
 	if err != nil {
+		if IsNotFoundErr(err) {
+			return entityErrors.ThreadNotFound
+		}
 		return err
 	}
 	if slug.Valid {
@@ -145,7 +148,7 @@ func (t Thread) Update(thread *entity.Thread) error {
 	if err != nil {
 		return err
 	}
-	defer func() {EndTx(tx, err)}()
+	defer func() { EndTx(tx, err) }()
 	updateColumns := make([]string, 0, 2)
 	values := make([]interface{}, 0, 2)
 	if thread.Title != "" {
@@ -188,14 +191,20 @@ func (t Thread) Vote(vote *entity.Vote, thread *entity.Thread) error {
 	if err != nil {
 		return err
 	}
-	defer func() {EndTx(tx, err)}()
+	defer func() { EndTx(tx, err) }()
 	var voice int32
-	err = tx.QueryRow("SELECT voice FROM votes AS v WHERE v.thread = $1", thread.ID).Scan(&voice)
+	if vote.Voice > 0 {
+		vote.Voice = 1
+	} else {
+		vote.Voice = -1
+	}
+
+	err = tx.QueryRow("SELECT voice FROM votes AS v WHERE v.thread = $1 AND author = $2", thread.ID, vote.Author).Scan(&voice)
 	if err == nil && voice == vote.Voice {
 		return nil
 	}
 
-	_, err = tx.Exec("INSERT INTO VOTES (voice, author, thread) VALUES ($1, $2, $3) " +
+	_, err = tx.Exec("INSERT INTO VOTES (voice, author, thread) VALUES ($1, $2, $3) "+
 		"ON CONFLICT (author, thread) DO UPDATE SET voice = EXCLUDED.voice;", vote.Voice, vote.Author, thread.ID)
 
 	if err != nil {

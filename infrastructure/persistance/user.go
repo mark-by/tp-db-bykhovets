@@ -7,7 +7,6 @@ import (
 	"github.com/mark-by/tp-db-bykhovets/domain/entity"
 	"github.com/mark-by/tp-db-bykhovets/domain/entityErrors"
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
-	"github.com/sirupsen/logrus"
 )
 
 type User struct {
@@ -24,7 +23,7 @@ func (u User) Create(user *entity.User) ([]entity.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func(){EndTx(tx, err)}()
+	defer func() { EndTx(tx, err) }()
 
 	_, err = tx.Exec("INSERT INTO customers (email, fullname, nickname, about) "+
 		"VALUES ($1, $2, $3, $4)", user.Email, user.FullName, user.NickName, &about)
@@ -45,8 +44,8 @@ func (u User) Create(user *entity.User) ([]entity.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query("SELECT nickname, fullname, about, email " +
-		"FROM customers " +
+	rows, err := tx.Query("SELECT nickname, fullname, about, email "+
+		"FROM customers "+
 		"WHERE nickname = $1 or email = $2;", user.NickName, user.Email)
 
 	if err != nil {
@@ -71,11 +70,11 @@ func (u User) GetForForum(slugForum string, since string, limit int, desc bool) 
 	if err != nil {
 		return nil, err
 	}
-	defer func() {EndTx(tx, err)}()
+	defer func() { EndTx(tx, err) }()
 
-	selects := fmt.Sprintf("SELECT u.nickname, u.fullname, u.email, u.about " +
-		"FROM forums_users AS fs " +
-		"JOIN customers as u ON fs.nickname = u.nickname " +
+	selects := fmt.Sprintf("SELECT u.nickname, u.fullname, u.email, u.about "+
+		"FROM forums_users AS fs "+
+		"JOIN customers as u ON fs.nickname = u.nickname "+
 		"WHERE fs.forum = '%s' ", slugForum)
 
 	symbol := ">"
@@ -97,12 +96,11 @@ func (u User) GetForForum(slugForum string, since string, limit int, desc bool) 
 
 	order := fmt.Sprintf("ORDER BY u.nickname %s", descStr)
 	sqlQuery := selects + sinceAddition + order + limits + ";"
-	logrus.Info("SQL: ", sqlQuery)
 	rows, err := tx.Query(sqlQuery)
 	if err != nil {
 		return nil, err
 	}
-	var users []entity.User
+	users := entity.UserList{}
 	about := sql.NullString{}
 	for rows.Next() {
 		user := entity.User{}
@@ -123,7 +121,7 @@ func (u User) Get(user *entity.User) (err error) {
 	if err != nil {
 		return
 	}
-	defer func() {EndTx(tx, err)}()
+	defer func() { EndTx(tx, err) }()
 
 	about := sql.NullString{}
 	err = tx.QueryRow("SELECT fullname, about, email FROM customers WHERE nickname = $1",
@@ -147,7 +145,7 @@ func (u User) Update(user *entity.User) (err error) {
 	if err != nil {
 		return
 	}
-	defer func() {EndTx(tx, err)}()
+	defer func() { EndTx(tx, err) }()
 
 	columns := make([]string, 0, 3)
 	values := make([]interface{}, 0, 3)
@@ -165,7 +163,7 @@ func (u User) Update(user *entity.User) (err error) {
 	}
 	titles := updateTitles(columns)
 
-	sqlRow := "UPDATE customers SET " + titles + fmt.Sprintf(" WHERE nickname = '%s' " +
+	sqlRow := "UPDATE customers SET " + titles + fmt.Sprintf(" WHERE nickname = '%s' "+
 		"RETURNING fullname, about, email", user.NickName)
 	about := sql.NullString{}
 	err = tx.QueryRow(sqlRow, values...).Scan(&user.FullName, &about, &user.Email)

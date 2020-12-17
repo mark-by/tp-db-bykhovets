@@ -42,8 +42,8 @@ func safeUnmarshal(req *fasthttp.RequestCtx, any easyjson.Unmarshaler) error {
 	return nil
 }
 
-func setStatus(req *fasthttp.RequestCtx, status int) {
-	req.SetStatusCode(status)
+func contentTypeJson(req *fasthttp.RequestCtx) {
+	req.SetContentType("application/json")
 }
 
 func message(message string) string {

@@ -16,8 +16,8 @@ type Forum interface {
 	Create(forum *entity.Forum) error
 	Get(slug string) (*entity.Forum, error)
 	CreateThread(slug string, thread *entity.Thread) error
-	GetUsers(slug string, limit int, since string, desc bool) ([]entity.User, error)
-	GetThreads(slug string, limit int, since string, desc bool) ([]entity.Thread, error)
+	GetUsers(slug string, limit int, since string, desc bool) (entity.UserList, error)
+	GetThreads(slug string, limit int, since string, desc bool) (entity.ThreadList, error)
 }
 
 type Post interface {
@@ -34,7 +34,7 @@ type Thread interface {
 	CreatePosts(slugOrId string, posts []entity.Post) error
 	Get(slugOrId string) (*entity.Thread, error)
 	Update(slugOrId string, thread *entity.Thread) error
-	GetPosts(slugOrId string, limit int, since int, desc bool, sort string) ([]entity.Post, error)
+	GetPosts(slugOrId string, limit int, since int, desc bool, sort string) (entity.PostList, error)
 	Vote(slugOrId string, vote *entity.Vote) (*entity.Thread, error)
 }
 

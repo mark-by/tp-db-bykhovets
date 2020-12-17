@@ -8,6 +8,7 @@ import (
 )
 
 func createUser(req *fasthttp.RequestCtx) {
+	contentTypeJson(req)
 	nickname := req.UserValue("nickname").(string)
 	user := &entity.User{}
 	err := easyjson.Unmarshal(req.Request.Body(), user)
@@ -33,6 +34,7 @@ func createUser(req *fasthttp.RequestCtx) {
 }
 
 func updateUser(req *fasthttp.RequestCtx) {
+	contentTypeJson(req)
 	nickname := req.UserValue("nickname").(string)
 	user := &entity.User{}
 	user.NickName = nickname
@@ -60,6 +62,7 @@ func updateUser(req *fasthttp.RequestCtx) {
 }
 
 func detailsUser(req *fasthttp.RequestCtx) {
+	contentTypeJson(req)
 	user, err := app.User.Get(req.UserValue("nickname").(string))
 	if err != nil {
 		if err == entityErrors.UserNotFound {

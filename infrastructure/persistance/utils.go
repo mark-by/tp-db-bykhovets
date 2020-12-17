@@ -54,9 +54,9 @@ func IsUniqErr(err error) bool {
 func updateTitles(columns []string) string {
 	values := ""
 	for idx, column := range columns {
-		values += fmt.Sprintf("%s = $%d,", column, idx + 1)
+		values += fmt.Sprintf("%s = $%d,", column, idx+1)
 	}
-	return values[:len(values) - 1]
+	return values[:len(values)-1]
 }
 
 type column struct {

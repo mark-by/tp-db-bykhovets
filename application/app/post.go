@@ -23,4 +23,3 @@ func newPost(repositories *repository.Repositories) *Post {
 }
 
 var _ application.Post = &Post{}
-

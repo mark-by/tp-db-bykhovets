@@ -46,12 +46,12 @@ func (t Thread) Update(slugOrId string, thread *entity.Thread) error {
 	return t.rep.Thread.Update(thread)
 }
 
-func (t Thread) GetPosts(slugOrId string, limit int, since int, desc bool, sort string) ([]entity.Post, error) {
+func (t Thread) GetPosts(slugOrId string, limit int, since int, desc bool, sort string) (entity.PostList, error) {
 	thread, err := t.Get(slugOrId)
 	if err != nil {
 		return nil, err
 	}
-	return t.rep.Post.GetForThread(int(thread.ID),desc, sort, since, limit)
+	return t.rep.Post.GetForThread(int(thread.ID), desc, sort, since, limit)
 }
 
 func (t Thread) Vote(slugOrId string, vote *entity.Vote) (*entity.Thread, error) {

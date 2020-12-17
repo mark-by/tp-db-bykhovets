@@ -36,10 +36,18 @@ func (f Forum) Get(slug string) (*entity.Forum, error) {
 
 func (f Forum) CreateThread(slug string, thread *entity.Thread) error {
 	thread.Forum = slug
-	return f.rep.Thread.Create(thread)
+	err := f.rep.Thread.Create(thread)
+	if err == entityErrors.ThreadAlreadyExist {
+		err = f.rep.Thread.Get(thread)
+		if err != nil {
+			return err
+		}
+		return entityErrors.ThreadAlreadyExist
+	}
+	return nil
 }
 
-func (f Forum) GetUsers(slug string, limit int, since string, desc bool) ([]entity.User, error) {
+func (f Forum) GetUsers(slug string, limit int, since string, desc bool) (entity.UserList, error) {
 	ok, _ := f.rep.Forum.Exists(slug)
 	if !ok {
 		return nil, entityErrors.ForumNotFound
@@ -47,7 +55,7 @@ func (f Forum) GetUsers(slug string, limit int, since string, desc bool) ([]enti
 	return f.rep.User.GetForForum(slug, since, limit, desc)
 }
 
-func (f Forum) GetThreads(slug string, limit int, since string, desc bool) ([]entity.Thread, error) {
+func (f Forum) GetThreads(slug string, limit int, since string, desc bool) (entity.ThreadList, error) {
 	ok, _ := f.rep.Forum.Exists(slug)
 	if !ok {
 		return nil, entityErrors.ForumNotFound

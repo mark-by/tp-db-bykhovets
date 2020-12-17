@@ -20,7 +20,7 @@ func (f Forum) Create(forum *entity.Forum) error {
 	if err != nil {
 		return err
 	}
-	defer func() {EndTx(tx, err)} ()
+	defer func() { EndTx(tx, err) }()
 
 	_, err = tx.Exec("INSERT INTO forums (slug, title, author) "+
 		"VALUES ($1, $2, $3)", forum.Slug, forum.Title, forum.Author)
@@ -44,7 +44,7 @@ func (f Forum) Exists(forumSlug string) (exist bool, err error) {
 	if err != nil {
 		return
 	}
-	defer func() {EndTx(tx, err)}()
+	defer func() { EndTx(tx, err) }()
 
 	err = tx.QueryRow("SELECT EXISTS (SELECT FROM forums WHERE slug = $1)", forumSlug).Scan(&exist)
 	return

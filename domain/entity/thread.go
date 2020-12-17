@@ -10,3 +10,6 @@ type Thread struct {
 	Author  string `json:"author"`
 	Forum   string `json:"forum"`
 }
+
+//easyjson:json
+type ThreadList []Thread

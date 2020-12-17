@@ -2,7 +2,6 @@ package entity
 
 import "github.com/jackc/pgtype"
 
-
 type Post struct {
 	ID       int64            `json:"id"`
 	Message  string           `json:"message"`

@@ -5,7 +5,6 @@ import (
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
 )
 
-
 func New(repositories *repository.Repositories) *application.App {
 	return &application.App{
 		Forum:   newForum(repositories),
@@ -15,4 +14,3 @@ func New(repositories *repository.Repositories) *application.App {
 		User:    newUser(repositories),
 	}
 }
-
