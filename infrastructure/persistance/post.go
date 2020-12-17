@@ -120,10 +120,10 @@ func uniqAuthors(posts []entity.Post) map[string]bool {
 	return set
 }
 
-func (p Post) Get(id int64, related []string) (*entity.Post, *entity.User, *entity.Thread, *entity.Forum, error) {
+func (p Post) Get(id int64, related []string) (*entity.PostFull, error) {
 	tx, err := p.db.Begin()
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 	defer func() { EndTx(tx, err) }()
 
@@ -183,42 +183,34 @@ func (p Post) Get(id int64, related []string) (*entity.Post, *entity.User, *enti
 
 	if err != nil {
 		if IsNotFoundErr(err) {
-			return nil, nil, nil, nil, entityErrors.PostNotFound
+			return nil, entityErrors.PostNotFound
 		}
-		return nil, nil, nil, nil, err
+		return nil, err
 	}
 
 	post.Created = created.Time.Format(time.RFC3339Nano)
 
-	returnedUser := new(entity.User)
+	postFull := entity.PostFull{Post: &post}
 	if authorRelated {
 		if authorAbout.Valid {
-			returnedUser.About = authorAbout.String
+			user.About = authorAbout.String
 		}
-		returnedUser = &user
-	} else {
-		returnedUser = nil
+		postFull.Author = &user
 	}
 
-	returnedThread := new(entity.Thread)
 	if threadRelated {
 		if threadSlug.Valid {
 			thread.Slug = threadSlug.String
 		}
 		thread.Created = threadCreated.Time.Format(time.RFC3339Nano)
-		returnedThread = &thread
-	} else {
-		returnedThread = nil
+		postFull.Thread = &thread
 	}
 
-	returnedForum := new(entity.Forum)
 	if forumRelated {
-		returnedForum = &forum
-	} else {
-		returnedForum = nil
+		postFull.Forum = &forum
 	}
 
-	return &post, returnedUser, returnedThread, returnedForum, nil
+	return &postFull, nil
 }
 
 func (p Post) Update(post *entity.Post) error {
@@ -236,6 +228,9 @@ func (p Post) Update(post *entity.Post) error {
 		Scan(&post.Parent, &created, &post.Author, &post.Thread, &post.Forum)
 
 	if err != nil {
+		if IsNotFoundErr(err) {
+			return entityErrors.PostNotFound
+		}
 		return err
 	}
 

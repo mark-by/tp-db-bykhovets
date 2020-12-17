@@ -1,7 +1,6 @@
 package entity
 
 type Forum struct {
-	ID      int32  `json:"-"`
 	Slug    string `json:"slug"`
 	Author  string `json:"user"`
 	Title   string `json:"title"`

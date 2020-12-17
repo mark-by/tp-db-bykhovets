@@ -1,8 +1,8 @@
 package entity
 
 type Thread struct {
-	ID      int32  `json:"-"`
-	Slug    string `json:"slug"`
+	ID      int32  `json:"id"`
+	Slug    string `json:"slug,omitempty"`
 	Title   string `json:"title"`
 	Message string `json:"message"`
 	Created string `json:"created"`

@@ -23,7 +23,7 @@ func New() *repository.Repositories {
 	return &repository.Repositories{
 		Forum:   newForum(db),
 		Post:    newPost(db),
-		Service: nil,
+		Service: newService(db),
 		Thread:  newThread(db),
 		User:    newUser(db),
 		Vote:    nil,

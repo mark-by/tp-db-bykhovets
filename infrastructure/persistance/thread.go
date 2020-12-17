@@ -7,7 +7,6 @@ import (
 	"github.com/mark-by/tp-db-bykhovets/domain/entity"
 	"github.com/mark-by/tp-db-bykhovets/domain/entityErrors"
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
-	"github.com/sirupsen/logrus"
 	"time"
 )
 
@@ -46,7 +45,6 @@ func (t Thread) Create(thread *entity.Thread) error {
 		case IsAuthorErr(err):
 			return entityErrors.UserNotFound
 		case IsForumErr(err):
-			logrus.Error("ERROR from thread: ", err)
 			return entityErrors.ForumNotFound
 		default:
 			return err
@@ -66,11 +64,6 @@ func (t Thread) GetForForum(forumSlug string, since string, limit int, desc bool
 		return nil, err
 	}
 	defer func() {EndTx(tx, err)}()
-	forumExists := false
-	err = tx.QueryRow("select exists (select from forums where slug = $1)", forumSlug).Scan(&forumExists)
-	if !forumExists {
-		return nil, entityErrors.ForumNotFound
-	}
 
 	descString := ""
 	symbol := ">="

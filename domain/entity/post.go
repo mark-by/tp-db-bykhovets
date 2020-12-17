@@ -2,8 +2,9 @@ package entity
 
 import "github.com/jackc/pgtype"
 
+
 type Post struct {
-	ID       int64            `json:"-"`
+	ID       int64            `json:"id"`
 	Message  string           `json:"message"`
 	IsEdited bool             `json:"isEdited"`
 	Parent   int64            `json:"parent"`
@@ -14,9 +15,12 @@ type Post struct {
 	Path     pgtype.Int8Array `json:"-"`
 }
 
+//easyjson:json
+type PostList []Post
+
 type PostFull struct {
-	Post   Post   `json:"post"`
-	Author User   `json:"author"`
-	Thread Thread `json:"thread"`
-	Forum  Forum  `json:"forum"`
+	Post   *Post   `json:"post"`
+	Author *User   `json:"author,omitempty"`
+	Thread *Thread `json:"thread,omitempty"`
+	Forum  *Forum  `json:"forum,omitempty"`
 }
