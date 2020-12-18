@@ -19,7 +19,7 @@ func (s Service) Clear() (err error) {
 	if err != nil {
 		return
 	}
-	defer func() { EndTx(s.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	_, err = tx.Exec("DELETE FROM customers")
 
@@ -31,7 +31,7 @@ func (s Service) Info() (*entity.Status, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { EndTx(s.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 	rows, err := tx.Query(
 		"SELECT count(*) FROM forums " +
 			"UNION ALL " +

@@ -20,7 +20,7 @@ func (f Forum) Create(forum *entity.Forum) error {
 	if err != nil {
 		return err
 	}
-	defer func() { EndTx(f.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	err = tx.QueryRow("INSERT INTO forums (slug, title, author) "+
 		"VALUES ($1, $2, (select nickname from customers where nickname = $3)) "+
@@ -45,7 +45,7 @@ func (f Forum) Exists(forumSlug string) (exist bool, err error) {
 	if err != nil {
 		return
 	}
-	defer func() { EndTx(f.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	err = tx.QueryRow("SELECT EXISTS (SELECT FROM forums WHERE slug = $1)", forumSlug).Scan(&exist)
 	return
@@ -56,7 +56,7 @@ func (f Forum) GetBySlug(slug string) (*entity.Forum, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { EndTx(f.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	row := tx.QueryRow("SELECT f.posts, f.slug, f.threads, f.title, f.author "+
 		"FROM forums as f "+

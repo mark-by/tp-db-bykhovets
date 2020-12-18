@@ -24,7 +24,7 @@ func (p Post) Create(thread *entity.Thread, posts []entity.Post) error {
 	if err != nil {
 		return err
 	}
-	defer func() { EndTx(p.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	created := sql.NullTime{}
 	for iter := range posts {
@@ -102,7 +102,7 @@ func (p Post) Get(id int64, related []string) (*entity.PostFull, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { EndTx(p.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	post := entity.Post{ID: id}
 	user := entity.User{}
@@ -196,7 +196,7 @@ func (p Post) Update(post *entity.Post) error {
 	if err != nil {
 		return err
 	}
-	defer func() { EndTx(p.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	created := sql.NullTime{}
 
@@ -240,7 +240,7 @@ func (p Post) GetForThread(threadId int, desc bool, sortType string, since int, 
 	if err != nil {
 		return nil, err
 	}
-	defer func() { EndTx(p.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	selects := "SELECT p.id, p.message, p.is_edited, p.parent, p.created, p.author, p.thread, p.forum "
 

@@ -23,7 +23,7 @@ func (u User) Create(user *entity.User) ([]entity.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { EndTx(u.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	_, err = tx.Exec("INSERT INTO customers (email, fullname, nickname, about) "+
 		"VALUES ($1, $2, $3, $4)", user.Email, user.FullName, user.NickName, &about)
@@ -71,7 +71,7 @@ func (u User) GetForForum(slugForum string, since string, limit int, desc bool) 
 	if err != nil {
 		return nil, err
 	}
-	defer func() { EndTx(u.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	selects := fmt.Sprintf("SELECT u.nickname, u.fullname, u.email, u.about "+
 		"FROM forums_users AS fs "+
@@ -123,7 +123,7 @@ func (u User) Get(user *entity.User) (err error) {
 	if err != nil {
 		return
 	}
-	defer func() { EndTx(u.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	about := sql.NullString{}
 	err = tx.QueryRow("SELECT fullname, about, nickname, email FROM customers WHERE nickname = $1",
@@ -148,7 +148,7 @@ func (u User) Update(user *entity.User) (err error) {
 	if err != nil {
 		return
 	}
-	defer func() { EndTx(u.db, tx, err) }()
+	defer func() { EndTx(tx, err) }()
 
 	columns := make([]string, 0, 3)
 	values := make([]interface{}, 0, 3)
