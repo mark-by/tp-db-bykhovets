@@ -17,59 +17,31 @@ type Post struct {
 }
 
 func (p Post) Create(thread *entity.Thread, posts []entity.Post) error {
+	if len(posts) == 0 {
+		return nil
+	}
 	tx, err := p.db.Begin()
 	if err != nil {
 		return err
 	}
-	defer func() { EndTx(tx, err) }()
+	defer func() { EndTx(p.db, tx, err) }()
 
-	values := ""
-	for _, post := range posts {
-		values += fmt.Sprintf("('%s', %d, '%s', %d, '%s', current_timestamp), ",
-			post.Message,
-			post.Parent,
-			post.Author,
-			thread.ID,
-			thread.Forum)
-	}
-	if values == "" {
-		return nil
-	}
-	sqlQuery := "INSERT INTO posts (message, parent, author, thread, forum, created) " +
-		"VALUES " + values[:len(values)-2] +
-		" RETURNING id, created;"
-
-	rows, err := tx.Query(sqlQuery)
-
-	if err != nil {
-		return err
-	}
-
-	idx := 0
 	created := sql.NullTime{}
-
-	for rows.Next() {
-		err = rows.Scan(&posts[idx].ID, &created)
-		posts[idx].Created = created.Time.Format(time.RFC3339Nano)
+	for iter := range posts {
+		posts[iter].Thread = thread.ID
+		posts[iter].Forum = thread.Forum
+		var err error
+		err = tx.QueryRow(
+			"INSERT INTO posts (message, parent, author, thread, forum, created) "+
+				"VALUES ($1, $2, $3, $4, $5, current_timestamp)"+
+				" RETURNING id, created;",
+			posts[iter].Message,
+			posts[iter].Parent,
+			posts[iter].Author,
+			posts[iter].Thread,
+			posts[iter].Forum,
+		).Scan(&posts[iter].ID, &created)
 		if err != nil {
-			return err
-		}
-		posts[idx].Thread = thread.ID
-		posts[idx].Forum = thread.Forum
-		idx++
-	}
-
-	if idx == 0 {
-		//ошибка в запросе
-		_ = tx.Rollback()
-		tx, err = p.db.Begin()
-		if err != nil {
-			return err
-		}
-		var id int64
-		err = tx.QueryRow(sqlQuery).Scan(&id, &created)
-		if err != nil {
-			_ = tx.Rollback()
 			switch true {
 			case IsPostParentErr(err):
 				return entityErrors.ParentNotExist
@@ -82,6 +54,9 @@ func (p Post) Create(thread *entity.Thread, posts []entity.Post) error {
 			default:
 				return err
 			}
+		}
+		if created.Valid {
+			posts[iter].Created = created.Time.Format(time.RFC3339Nano)
 		}
 	}
 
@@ -127,7 +102,7 @@ func (p Post) Get(id int64, related []string) (*entity.PostFull, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer func() { EndTx(tx, err) }()
+	defer func() { EndTx(p.db, tx, err) }()
 
 	post := entity.Post{ID: id}
 	user := entity.User{}
@@ -221,7 +196,7 @@ func (p Post) Update(post *entity.Post) error {
 	if err != nil {
 		return err
 	}
-	defer func() { EndTx(tx, err) }()
+	defer func() { EndTx(p.db, tx, err) }()
 
 	created := sql.NullTime{}
 
@@ -265,7 +240,7 @@ func (p Post) GetForThread(threadId int, desc bool, sortType string, since int, 
 	if err != nil {
 		return nil, err
 	}
-	defer func() { EndTx(tx, err) }()
+	defer func() { EndTx(p.db, tx, err) }()
 
 	selects := "SELECT p.id, p.message, p.is_edited, p.parent, p.created, p.author, p.thread, p.forum "
 
@@ -288,11 +263,13 @@ func (p Post) GetForThread(threadId int, desc bool, sortType string, since int, 
 		post := entity.Post{}
 		err := rows.Scan(&post.ID, &post.Message, &post.IsEdited, &post.Parent, &created, &post.Author, &post.Thread, &post.Forum)
 		if err != nil {
+			rows.Close()
 			return nil, err
 		}
 		post.Created = created.Time.Format(time.RFC3339Nano)
 		posts = append(posts, post)
 	}
+	rows.Close()
 	return posts, nil
 }
 

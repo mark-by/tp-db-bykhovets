@@ -38,7 +38,7 @@ func ServeAPI() {
 	r.GET("/api/user/{nickname}/profile", detailsUser)
 	r.POST("/api/user/{nickname}/profile", updateUser)
 
-	if err := fasthttp.ListenAndServe("0.0.0.0:8000", r.Handler); err != nil {
+	if err := fasthttp.ListenAndServe("0.0.0.0:5000", r.Handler); err != nil {
 		logrus.Fatalf("Fail to start server: %s", err)
 	}
 }

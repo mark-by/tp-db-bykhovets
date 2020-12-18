@@ -19,7 +19,7 @@ func (t Thread) Create(thread *entity.Thread) error {
 	if err != nil {
 		return err
 	}
-	defer func() { EndTx(tx, err) }()
+	defer func() { EndTx(t.db, tx, err) }()
 
 	created := sql.NullTime{Time: time.Now(), Valid: true}
 	if thread.Created != "" {
@@ -64,7 +64,7 @@ func (t Thread) GetForForum(forumSlug string, since string, limit int, desc bool
 	if err != nil {
 		return nil, err
 	}
-	defer func() { EndTx(tx, err) }()
+	defer func() { EndTx(t.db, tx, err) }()
 
 	descString := ""
 	symbol := ">="
@@ -92,6 +92,7 @@ func (t Thread) GetForForum(forumSlug string, since string, limit int, desc bool
 	if err != nil {
 		return nil, err
 	}
+	defer rows.Close()
 
 	threads := entity.ThreadList{}
 	slug := sql.NullString{}
@@ -117,7 +118,7 @@ func (t Thread) Get(thread *entity.Thread) error {
 	if err != nil {
 		return err
 	}
-	defer func() { EndTx(tx, err) }()
+	defer func() { EndTx(t.db, tx, err) }()
 
 	selects := "SELECT id, title, author, forum, message, votes, slug, created FROM threads "
 	where := fmt.Sprintf("WHERE id = %d;", thread.ID)
@@ -149,7 +150,7 @@ func (t Thread) Update(thread *entity.Thread) error {
 	if err != nil {
 		return err
 	}
-	defer func() { EndTx(tx, err) }()
+	defer func() { EndTx(t.db, tx, err) }()
 	updateColumns := make([]string, 0, 2)
 	values := make([]interface{}, 0, 2)
 	if thread.Title != "" {
@@ -196,7 +197,7 @@ func (t Thread) Vote(vote *entity.Vote, thread *entity.Thread) error {
 	if err != nil {
 		return err
 	}
-	defer func() { EndTx(tx, err) }()
+	defer func() { EndTx(t.db, tx, err) }()
 	var voice int32
 	if vote.Voice > 0 {
 		vote.Voice = 1

@@ -31,6 +31,10 @@ CREATE UNLOGGED TABLE customers
     about    TEXT
 );
 
+create index index_users_all on customers (nickname, fullname, email, about);
+cluster customers using index_users_all;
+
+
 ---- Forums
 CREATE UNLOGGED TABLE forums
 (
@@ -41,6 +45,11 @@ CREATE UNLOGGED TABLE forums
     threads BIGINT DEFAULT 0,
     posts   BIGINT DEFAULT 0
 );
+
+
+create index index_forum_slug_hash on forums using hash (slug);
+create index index_users_fk on forums (author);
+create index index_forum_all on forums (slug, title, author, posts, threads);
 
 ---- Threads
 CREATE UNLOGGED TABLE threads
@@ -54,6 +63,13 @@ CREATE UNLOGGED TABLE threads
     author  CITEXT COLLATE "C" NOT NULL REFERENCES customers (nickname) ON DELETE CASCADE,
     forum   CITEXT COLLATE "C" NOT NULL REFERENCES forums (slug) ON DELETE CASCADE
 );
+
+create index index_thread_forum_created on threads (forum, created);
+create index index_thread_slug on threads (slug);
+create index index_thread_slug_hash on threads using hash (slug);
+create index index_thread_all on threads (title, message, created, slug, author, forum, votes);
+create index index_thread_users_fk on threads (author);
+create index index_thread_forum_fk on threads (forum);
 
 ---- Posts
 CREATE UNLOGGED TABLE posts
@@ -69,6 +85,16 @@ CREATE UNLOGGED TABLE posts
     path      BIGINT[]
 );
 
+create index index_post_thread_id on posts (thread, id);
+create index index_post_thread_path on posts (thread, path);
+create index index_post_thread_parent_path on posts (thread, parent, path);
+create index index_post_path1_path on posts ((path[1]), path);
+create index index_post_thread_created_id on posts (thread, created, id);
+
+create index index_post_users_fk on posts (author);
+create index index_post_forum_fk on posts (forum);
+
+
 ---- Votes
 CREATE UNLOGGED TABLE votes
 (
@@ -78,6 +104,7 @@ CREATE UNLOGGED TABLE votes
     thread INTEGER            NOT NULL REFERENCES threads ON DELETE CASCADE
 );
 
+-- create index index_vote_thread on votes (thread);
 CREATE UNIQUE INDEX unique_vote_idx on votes (author, thread);
 
 ---- Forum Users
@@ -87,7 +114,8 @@ CREATE UNLOGGED TABLE forums_users
     nickname CITEXT COLLATE "C" NOT NULL REFERENCES customers (nickname) ON DELETE CASCADE
 );
 
-CREATE UNIQUE INDEX unique_idx_forum_users on forums_users (nickname, forum);
+CREATE UNIQUE INDEX unique_idx_forum_users on forums_users (forum, nickname);
+cluster forums_users using unique_idx_forum_users;
 
 ---- Update path
 CREATE OR REPLACE FUNCTION update_path()

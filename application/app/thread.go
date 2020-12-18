@@ -44,7 +44,7 @@ func (t Thread) Update(slugOrId string, thread *entity.Thread) error {
 	} else {
 		thread.ID = int32(num)
 	}
-	err =  t.rep.Thread.Update(thread)
+	err = t.rep.Thread.Update(thread)
 	if err == entityErrors.NothingToUpdate {
 		return t.rep.Thread.Get(thread)
 	}

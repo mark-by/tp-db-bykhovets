@@ -7,7 +7,7 @@ import (
 	"strings"
 )
 
-func EndTx(tx *pgx.Tx, err error) {
+func EndTx(db *pgx.ConnPool, tx *pgx.Tx, err error) {
 	if tx.Status() == -1 {
 		return
 	}
