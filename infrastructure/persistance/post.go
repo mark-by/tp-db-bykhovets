@@ -376,7 +376,7 @@ func getPostsOrder(sortType string, desc bool) string {
 	case "tree":
 		return fmt.Sprintf("ORDER BY p.path %s", descStr)
 	case "parent_tree":
-		return fmt.Sprintf("ORDER BY p.path[1] %s, p.path %s", descStr, descStr)
+		return fmt.Sprintf("ORDER BY p.path[1] %s, p.path ", descStr)
 	default:
 		return "ORDER BY p.created"
 	}
