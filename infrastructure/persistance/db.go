@@ -10,8 +10,8 @@ func New() *repository.Repositories {
 	db, err := pgx.NewConnPool(pgx.ConnPoolConfig{
 		ConnConfig: pgx.ConnConfig{
 			Database: "forum",
-			User:     "mark_by",
-			Password: "postgres",
+			User:     "forum",
+			Password: "123",
 		},
 		MaxConnections: 100,
 	})

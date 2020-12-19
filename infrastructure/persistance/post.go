@@ -8,6 +8,7 @@ import (
 	"github.com/mark-by/tp-db-bykhovets/domain/entity"
 	"github.com/mark-by/tp-db-bykhovets/domain/entityErrors"
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
+	"github.com/sirupsen/logrus"
 	"strconv"
 	"time"
 )
@@ -26,22 +27,51 @@ func (p Post) Create(thread *entity.Thread, posts []entity.Post) error {
 	}
 	defer func() { EndTx(tx, err) }()
 
+	values := ""
+	for _, post := range posts {
+		values += fmt.Sprintf("('%s', %d, '%s', %d, '%s', current_timestamp), ",
+			post.Message,
+			post.Parent,
+			post.Author,
+			thread.ID,
+			thread.Forum)
+	}
+
+	sqlQuery := "INSERT INTO posts (message, parent, author, thread, forum, created) " +
+		"VALUES " + values[:len(values)-2] +
+		" RETURNING id, created;"
+
+	rows, err := tx.Query(sqlQuery)
+
+	if err != nil {
+		return err
+	}
+
+	idx := 0
 	created := sql.NullTime{}
-	for iter := range posts {
-		posts[iter].Thread = thread.ID
-		posts[iter].Forum = thread.Forum
-		var err error
-		err = tx.QueryRow(
-			"INSERT INTO posts (message, parent, author, thread, forum, created) "+
-				"VALUES ($1, $2, $3, $4, $5, current_timestamp)"+
-				" RETURNING id, created;",
-			posts[iter].Message,
-			posts[iter].Parent,
-			posts[iter].Author,
-			posts[iter].Thread,
-			posts[iter].Forum,
-		).Scan(&posts[iter].ID, &created)
+
+	for rows.Next() {
+		err = rows.Scan(&posts[idx].ID, &created)
+		posts[idx].Created = created.Time.Format(time.RFC3339Nano)
 		if err != nil {
+			return err
+		}
+		posts[idx].Thread = thread.ID
+		posts[idx].Forum = thread.Forum
+		idx++
+	}
+
+	if idx == 0 {
+		//ошибка в запросе
+		_ = tx.Rollback()
+		tx, err = p.db.Begin()
+		if err != nil {
+			return err
+		}
+		var id int64
+		err = tx.QueryRow(sqlQuery).Scan(&id, &created)
+		if err != nil {
+			_ = tx.Rollback()
 			switch true {
 			case IsPostParentErr(err):
 				return entityErrors.ParentNotExist
@@ -55,18 +85,23 @@ func (p Post) Create(thread *entity.Thread, posts []entity.Post) error {
 				return err
 			}
 		}
-		if created.Valid {
-			posts[iter].Created = created.Time.Format(time.RFC3339Nano)
-		}
-	}
-
-	err = insertUsers(tx, thread.Forum, uniqAuthors(posts))
-	if err != nil {
-		return err
 	}
 
 	err = updateForumPostsCount(tx, thread.Forum, len(posts))
 	if err != nil {
+		return err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+
+	tx, err = p.db.Begin()
+
+	err = insertUsers(tx, thread.Forum, uniqAuthors(posts))
+	if err != nil {
+		logrus.Error(err)
 		return err
 	}
 
@@ -81,11 +116,14 @@ func updateForumPostsCount(tx *pgx.Tx, forum string, num int) error {
 func insertUsers(tx *pgx.Tx, forum string, authors map[string]bool) error {
 	values := ""
 	for author, _ := range authors {
-		values += fmt.Sprintf("('%s', '%s'), ", forum, author)
+		values += fmt.Sprintf("('%s', '%s'),", forum, author)
 	}
 	_, err := tx.Exec("INSERT INTO forums_users (forum, nickname) " +
-		"VALUES " + values[:len(values)-2] + " ON CONFLICT DO NOTHING;")
-	return err
+		"VALUES " + values[:len(values)-1] + " ON CONFLICT DO NOTHING;")
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func uniqAuthors(posts []entity.Post) map[string]bool {

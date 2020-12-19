@@ -1,27 +1,21 @@
 ALTER SYSTEM SET checkpoint_completion_target = '0.9';
 ALTER SYSTEM SET wal_buffers = '6912kB';
 ALTER SYSTEM SET default_statistics_target = '100';
-ALTER SYSTEM SET random_page_cost = '1.1';
 ALTER SYSTEM SET effective_io_concurrency = '200';
-ALTER SYSTEM SET seq_page_cost = '0.1';
-ALTER SYSTEM SET random_page_cost = '0.1';
 ALTER SYSTEM SET max_worker_processes = '4';
 ALTER SYSTEM SET max_parallel_workers_per_gather = '2';
 ALTER SYSTEM SET max_parallel_workers = '4';
 ALTER SYSTEM SET max_parallel_maintenance_workers = '2';
+ALTER SYSTEM SET random_page_cost = '0.1';
+ALTER SYSTEM SET seq_page_cost = '0.1';
 
-DROP TABLE IF EXISTS customers CASCADE;
-DROP TABLE IF EXISTS forums CASCADE;
-DROP TABLE IF EXISTS threads CASCADE;
-DROP TABLE IF EXISTS posts CASCADE;
-DROP TABLE IF EXISTS votes CASCADE;
-DROP TABLE IF EXISTS forums_users CASCADE;
 
 CREATE EXTENSION IF NOT EXISTS CITEXT;
 
 -- Tables
 
 ---- Users
+DROP TABLE IF EXISTS customers CASCADE;
 CREATE UNLOGGED TABLE customers
 (
     id       SERIAL PRIMARY KEY,
@@ -36,6 +30,7 @@ cluster customers using index_users_all;
 
 
 ---- Forums
+DROP TABLE IF EXISTS forums CASCADE;
 CREATE UNLOGGED TABLE forums
 (
     id      SERIAL PRIMARY KEY,
@@ -46,12 +41,12 @@ CREATE UNLOGGED TABLE forums
     posts   BIGINT DEFAULT 0
 );
 
-
 create index index_forum_slug_hash on forums using hash (slug);
 create index index_users_fk on forums (author);
 create index index_forum_all on forums (slug, title, author, posts, threads);
 
 ---- Threads
+DROP TABLE IF EXISTS threads CASCADE;
 CREATE UNLOGGED TABLE threads
 (
     id      SERIAL PRIMARY KEY,
@@ -72,6 +67,7 @@ create index index_thread_users_fk on threads (author);
 create index index_thread_forum_fk on threads (forum);
 
 ---- Posts
+DROP TABLE IF EXISTS posts CASCADE;
 CREATE UNLOGGED TABLE posts
 (
     id        BIGSERIAL PRIMARY KEY,
@@ -90,12 +86,11 @@ create index index_post_thread_path on posts (thread, path);
 create index index_post_thread_parent_path on posts (thread, parent, path);
 create index index_post_path1_path on posts ((path[1]), path);
 create index index_post_thread_created_id on posts (thread, created, id);
-
 create index index_post_users_fk on posts (author);
 create index index_post_forum_fk on posts (forum);
 
-
 ---- Votes
+DROP TABLE IF EXISTS votes CASCADE;
 CREATE UNLOGGED TABLE votes
 (
     id     SERIAL PRIMARY KEY,
@@ -104,10 +99,11 @@ CREATE UNLOGGED TABLE votes
     thread INTEGER            NOT NULL REFERENCES threads ON DELETE CASCADE
 );
 
--- create index index_vote_thread on votes (thread);
+create index index_vote_thread on votes (thread);
 CREATE UNIQUE INDEX unique_vote_idx on votes (author, thread);
 
 ---- Forum Users
+DROP TABLE IF EXISTS forums_users CASCADE;
 CREATE UNLOGGED TABLE forums_users
 (
     forum    CITEXT COLLATE "C" NOT NULL REFERENCES forums (slug) ON DELETE CASCADE,
@@ -132,7 +128,7 @@ BEGIN
         FROM posts
         WHERE thread = NEW.thread AND id = NEW.parent
         INTO first_parent_thread, parent_path;
-        IF NOT FOUND OR first_parent_thread != NEW.thread THEN
+        IF NOT FOUND THEN
             RAISE EXCEPTION 'Parent post not found in current thread' USING ERRCODE = '00404';
         END IF ;
         NEW.path := parent_path || NEW.id;
@@ -162,7 +158,7 @@ CREATE TRIGGER thread_insert_forum
     AFTER INSERT
     ON threads
     FOR EACH ROW
-EXECUTE PROCEDURE update_forum_users_by_insert_into_threads()
+EXECUTE PROCEDURE update_forum_users_by_insert_into_threads();
 
 -- Update forum threads
 CREATE OR REPLACE FUNCTION update_forum_threads()
