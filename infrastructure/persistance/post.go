@@ -27,6 +27,11 @@ func (p Post) Create(thread *entity.Thread, posts []entity.Post) error {
 	}
 	defer func() { EndTx(tx, err) }()
 
+	err = updateForumPostsCount(tx, thread.Forum, len(posts))
+	if err != nil {
+		return err
+	}
+
 	values := ""
 	for _, post := range posts {
 		values += fmt.Sprintf("('%s', %d, '%s', %d, '%s', current_timestamp), ",
