@@ -87,18 +87,6 @@ func (p Post) Create(thread *entity.Thread, posts []entity.Post) error {
 		}
 	}
 
-	err = updateForumPostsCount(tx, thread.Forum, len(posts))
-	if err != nil {
-		return err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-
-	tx, err = p.db.Begin()
-
 	err = insertUsers(tx, thread.Forum, uniqAuthors(posts))
 	if err != nil {
 		logrus.Error(err)

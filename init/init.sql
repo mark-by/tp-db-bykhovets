@@ -219,3 +219,18 @@ CREATE TRIGGER insert_vote_trigger
     ON votes
     FOR EACH ROW
     EXECUTE PROCEDURE insert_votes();
+
+CREATE OR REPLACE FUNCTION update_forum_posts()
+    RETURNS TRIGGER AS
+$update_forum_posts$
+BEGIN
+    UPDATE forums SET posts = posts + 1 WHERE slug = new.forum;
+    RETURN new;
+END;
+$update_forum_posts$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_forum_posts
+    BEFORE INSERT
+    ON posts
+    FOR EACH ROW
+EXECUTE PROCEDURE update_forum_posts();
