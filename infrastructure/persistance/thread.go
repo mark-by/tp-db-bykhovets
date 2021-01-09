@@ -7,11 +7,31 @@ import (
 	"github.com/mark-by/tp-db-bykhovets/domain/entity"
 	"github.com/mark-by/tp-db-bykhovets/domain/entityErrors"
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
+	"github.com/sirupsen/logrus"
 	"time"
 )
 
 type Thread struct {
 	db *pgx.ConnPool
+}
+
+func (t Thread) Prepare() error {
+	if _, err := t.db.Prepare("createThread", "INSERT INTO threads (slug, title, message, author, forum, created) "+
+		"VALUES ($1, $2, $3, $4, (select slug from forums where slug = $5), $6) "+
+		"RETURNING id, forum;"); err != nil {
+		return err
+	}
+
+	if _, err := t.db.Prepare("getVoice", "SELECT voice FROM votes AS v WHERE v.thread = $1 AND author = $2"); err != nil {
+		return err
+	}
+
+	if _, err := t.db.Prepare("insertVote", "INSERT INTO VOTES (voice, author, thread) VALUES ($1, $2, $3) "+
+		"ON CONFLICT (author, thread) DO UPDATE SET voice = EXCLUDED.voice;"); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (t Thread) Create(thread *entity.Thread) error {
@@ -35,9 +55,7 @@ func (t Thread) Create(thread *entity.Thread) error {
 	}
 
 	var id int32
-	err = tx.QueryRow("INSERT INTO threads (slug, title, message, author, forum, created) "+
-		"VALUES ($1, $2, $3, $4, (select slug from forums where slug = $5), $6) "+
-		"RETURNING id, forum;", slug, thread.Title, thread.Message, thread.Author, thread.Forum, created).Scan(&id, &thread.Forum)
+	err = tx.QueryRow("createThread", slug, thread.Title, thread.Message, thread.Author, thread.Forum, created).Scan(&id, &thread.Forum)
 
 	if err != nil {
 		switch true {
@@ -205,13 +223,12 @@ func (t Thread) Vote(vote *entity.Vote, thread *entity.Thread) error {
 		vote.Voice = -1
 	}
 
-	err = tx.QueryRow("SELECT voice FROM votes AS v WHERE v.thread = $1 AND author = $2", thread.ID, vote.Author).Scan(&voice)
+	err = tx.QueryRow("getVoice", thread.ID, vote.Author).Scan(&voice)
 	if err == nil && voice == vote.Voice {
 		return nil
 	}
 
-	_, err = tx.Exec("INSERT INTO VOTES (voice, author, thread) VALUES ($1, $2, $3) "+
-		"ON CONFLICT (author, thread) DO UPDATE SET voice = EXCLUDED.voice;", vote.Voice, vote.Author, thread.ID)
+	_, err = tx.Exec("insertVote", vote.Voice, vote.Author, thread.ID)
 
 	if err != nil {
 		switch true {
@@ -230,7 +247,12 @@ func (t Thread) Vote(vote *entity.Vote, thread *entity.Thread) error {
 }
 
 func newThread(db *pgx.ConnPool) *Thread {
-	return &Thread{db}
+	thread := Thread{db}
+	err := thread.Prepare()
+	if err != nil {
+		logrus.Fatal(err.Error())
+	}
+	return &thread
 }
 
 var _ repository.Thread = &Thread{}

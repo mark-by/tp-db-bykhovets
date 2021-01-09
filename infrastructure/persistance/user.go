@@ -7,10 +7,31 @@ import (
 	"github.com/mark-by/tp-db-bykhovets/domain/entity"
 	"github.com/mark-by/tp-db-bykhovets/domain/entityErrors"
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
+	"github.com/sirupsen/logrus"
 )
 
 type User struct {
 	db *pgx.ConnPool
+}
+
+func (u User) Prepare() error {
+	if _, err := u.db.Prepare("insertCustomer", "INSERT INTO customers (email, fullname, nickname, about) "+
+		"VALUES ($1, $2, $3, $4)"); err != nil {
+		return err
+	}
+
+	if _, err := u.db.Prepare("getCustomer", "SELECT nickname, fullname, about, email "+
+		"FROM customers "+
+		"WHERE nickname = $1 or email = $2;"); err != nil {
+		return err
+	}
+
+	if _, err := u.db.Prepare("getCustomerByNickname", "SELECT fullname, about, nickname, email"+
+		" FROM customers WHERE nickname = $1"); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (u User) Create(user *entity.User) ([]entity.User, error) {
@@ -25,8 +46,7 @@ func (u User) Create(user *entity.User) ([]entity.User, error) {
 	}
 	defer func() { EndTx(tx, err) }()
 
-	_, err = tx.Exec("INSERT INTO customers (email, fullname, nickname, about) "+
-		"VALUES ($1, $2, $3, $4)", user.Email, user.FullName, user.NickName, &about)
+	_, err = tx.Exec("insertCustomer", user.Email, user.FullName, user.NickName, &about)
 
 	if err == nil {
 		return nil, nil
@@ -44,9 +64,7 @@ func (u User) Create(user *entity.User) ([]entity.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	rows, err := tx.Query("SELECT nickname, fullname, about, email "+
-		"FROM customers "+
-		"WHERE nickname = $1 or email = $2;", user.NickName, user.Email)
+	rows, err := tx.Query("getCustomer", user.NickName, user.Email)
 
 	if err != nil {
 		return nil, err
@@ -126,7 +144,7 @@ func (u User) Get(user *entity.User) (err error) {
 	defer func() { EndTx(tx, err) }()
 
 	about := sql.NullString{}
-	err = tx.QueryRow("SELECT fullname, about, nickname, email FROM customers WHERE nickname = $1",
+	err = tx.QueryRow("getCustomerByNickname",
 		user.NickName).Scan(&user.FullName, &about, &user.NickName, &user.Email)
 
 	if err != nil {
@@ -192,7 +210,12 @@ func (u User) Update(user *entity.User) (err error) {
 }
 
 func newUser(db *pgx.ConnPool) *User {
-	return &User{db}
+	user := User{db}
+	err := user.Prepare()
+	if err != nil {
+		logrus.Error(err.Error())
+	}
+	return &user
 }
 
 var _ repository.User = &User{}

@@ -4,6 +4,7 @@ import (
 	"github.com/jackc/pgx"
 	"github.com/mark-by/tp-db-bykhovets/domain/entity"
 	"github.com/mark-by/tp-db-bykhovets/domain/repository"
+	"github.com/sirupsen/logrus"
 )
 
 type Service struct {
@@ -11,7 +12,12 @@ type Service struct {
 }
 
 func newService(db *pgx.ConnPool) *Service {
-	return &Service{db}
+	service := Service{db}
+	err := service.Prepare()
+	if err != nil {
+		logrus.Error(err.Error())
+	}
+	return &service
 }
 
 func (s Service) Clear() (err error) {
@@ -26,22 +32,30 @@ func (s Service) Clear() (err error) {
 	return
 }
 
+func (s Service) Prepare() error {
+	_, err := s.db.Prepare("info", "SELECT count(*) FROM forums "+
+		"UNION ALL "+
+		"SELECT count(*) "+
+		"FROM posts "+
+		"UNION ALL "+
+		"SELECT count(*) FROM threads "+
+		"UNION ALL "+
+		"SELECT count(*) FROM customers")
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (s Service) Info() (*entity.Status, error) {
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
 	}
 	defer func() { EndTx(tx, err) }()
-	rows, err := tx.Query(
-		"SELECT count(*) FROM forums " +
-			"UNION ALL " +
-			"SELECT count(*) " +
-			"FROM posts " +
-			"UNION ALL " +
-			"SELECT count(*) FROM threads " +
-			"UNION ALL " +
-			"SELECT count(*) FROM customers",
-	)
+	rows, err := tx.Query("info")
 	if err != nil {
 		return nil, err
 	}

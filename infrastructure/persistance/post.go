@@ -102,7 +102,7 @@ func (p Post) Create(thread *entity.Thread, posts []entity.Post) error {
 }
 
 func updateForumPostsCount(tx *pgx.Tx, forum string, num int) error {
-	_, err := tx.Exec("UPDATE forums SET posts = (posts + $1) WHERE slug = $2;", num, forum)
+	_, err := tx.Exec("updateForumPostsCount", num, forum)
 	return err
 }
 
@@ -232,7 +232,7 @@ func (p Post) Update(post *entity.Post) error {
 	created := sql.NullTime{}
 
 	var prevMessage string
-	err = tx.QueryRow("SELECT parent, message, created, author, thread, forum, is_edited FROM posts WHERE id = $1", post.ID).
+	err = tx.QueryRow("selectPost", post.ID).
 		Scan(&post.Parent, &prevMessage, &created, &post.Author, &post.Thread, &post.Forum, &post.IsEdited)
 
 	if err != nil {
@@ -247,9 +247,7 @@ func (p Post) Update(post *entity.Post) error {
 		return nil
 	}
 
-	err = tx.QueryRow("UPDATE posts SET message = $1, is_edited = true "+
-		"WHERE id = $2 "+
-		"RETURNING parent, created, author, thread, forum, is_edited", post.Message, post.ID).
+	err = tx.QueryRow("updatePost", post.Message, post.ID).
 		Scan(&post.Parent, &created, &post.Author, &post.Thread, &post.Forum, &post.IsEdited)
 
 	if err != nil {
@@ -302,6 +300,26 @@ func (p Post) GetForThread(threadId int, desc bool, sortType string, since int, 
 	}
 	rows.Close()
 	return posts, nil
+}
+
+func (p Post) Prepare() error {
+	if _, err := p.db.Prepare("updateForumPostsCount", "UPDATE forums SET posts = (posts + $1) "+
+		"WHERE slug = $2;"); err != nil {
+		return err
+	}
+
+	if _, err := p.db.Prepare("selectPost", "SELECT parent, message, created, author, thread, forum, is_edited"+
+		" FROM posts WHERE id = $1;"); err != nil {
+		return err
+	}
+
+	if _, err := p.db.Prepare("updatePost", "UPDATE posts SET message = $1, is_edited = true "+
+		"WHERE id = $2 "+
+		"RETURNING parent, created, author, thread, forum, is_edited"); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func getPostsWhere(threadId int, sortType string, desc bool, since int, limit int) string {
@@ -376,7 +394,12 @@ func getPostsOrder(sortType string, desc bool) string {
 }
 
 func newPost(db *pgx.ConnPool) *Post {
-	return &Post{db}
+	post := Post{db}
+	err := post.Prepare()
+	if err != nil {
+		logrus.Fatal(err)
+	}
+	return &post
 }
 
 var _ repository.Post = &Post{}
